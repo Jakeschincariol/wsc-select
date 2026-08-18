@@ -1,4 +1,5 @@
 .DS_Store
+.admin-password.txt
 .env
 .env.local
 .vercel
