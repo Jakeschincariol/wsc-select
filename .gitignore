@@ -1,3 +1,6 @@
 .DS_Store
-_*.html
+.env
+.env.local
 .vercel
+_*.html
+node_modules

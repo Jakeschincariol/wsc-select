@@ -107,55 +107,109 @@
     root.style.removeProperty("--sy");
   }
 
-  /* The field is decorative. If the visitor asked for less motion, or the tab is
-     hidden, it should not be burning a decode loop. */
+  /* Autoplay, everywhere, with no visible control.
+
+     iOS only honours autoplay when the element is BOTH muted and inline, and it
+     checks the muted *property*, not just the attribute, so both are set before
+     play() is ever called. If a browser still refuses (iOS Low Power Mode is the
+     common case), the very first interaction of any kind starts it, so the visitor
+     never sees a play button. The poster covers the gap until then. */
   function film() {
     var v = document.querySelector(".filmbed video");
     if (!v) return;
+
+    v.muted = true;
+    v.defaultMuted = true;
+    v.setAttribute("muted", "");
+    v.playsInline = true;
+    v.controls = false;
+
     if (reduce.matches) { v.pause(); v.removeAttribute("autoplay"); return; }
-    document.addEventListener("visibilitychange", function () {
-      if (document.hidden) v.pause();
-      else { var q = v.play(); if (q && q.catch) q.catch(function () {}); }
+
+    var tryPlay = function () {
+      var q = v.play();
+      if (q && q.catch) q.catch(function () {});
+    };
+
+    /* any first gesture, or even a scroll, satisfies the gesture requirement */
+    var kick = function () { tryPlay(); };
+    ["pointerdown", "touchstart", "keydown", "scroll"].forEach(function (ev) {
+      window.addEventListener(ev, kick, { once: true, passive: true });
     });
-    var play = v.play();
-    if (play && play.catch) play.catch(function () {});  /* autoplay blocked: poster stands in */
+
+    /* re-assert after the tab returns, and once metadata lands on slow connections */
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) v.pause(); else tryPlay();
+    });
+    v.addEventListener("loadeddata", tryPlay, { once: true });
+    v.addEventListener("canplay", tryPlay, { once: true });
+
+    tryPlay();
   }
 
-
-  /* A <form action="mailto:"> POST is blocked or mangled by most browsers, so a
-     nomination would silently never arrive. Build the mailto from the fields and
-     navigate instead. The plain action stays as the no-JS fallback. */
+  /* The form posts to /api/nominate, which records the nomination in Supabase and
+     emails Brian. If that endpoint is unreachable or not configured yet, it falls
+     back to composing a mailto so a nomination is never silently lost. The plain
+     form action remains the no-JS path. */
   function nomination() {
     var f = document.querySelector(".form");
     if (!f) return;
-    f.addEventListener("submit", function (e) {
-      if (!f.reportValidity || !f.reportValidity()) return;
-      e.preventDefault();
-      var g = function (n) {
+    var status = f.querySelector(".form__status");
+    var button = f.querySelector("button[type=submit]");
+
+    function say(msg, state) {
+      if (!status) return;
+      status.textContent = msg;
+      if (state) status.setAttribute("data-state", state);
+      else status.removeAttribute("data-state");
+    }
+
+    function values() {
+      var v = {};
+      ["player", "age", "club", "you", "email", "why", "company"].forEach(function (n) {
         var el = f.elements[n];
-        return el && el.value ? el.value.trim() : "";
-      };
-      var player = g("player");
-      var lines = [
-        "Player name: " + player,
-        "Age group: " + g("age"),
-        "Current club: " + g("club"),
-        "",
-        "Nominated by: " + g("you"),
-        "Contact email: " + g("email"),
-        "",
-        "Why this player:",
-        g("why") || "(not given)",
-        "",
-        "Sent from the WSC Select nomination form."
-      ];
+        v[n] = el && el.value ? el.value.trim() : "";
+      });
+      return v;
+    }
+
+    function mailtoFallback(v) {
       var to = (f.getAttribute("action") || "").replace(/^mailto:/, "") || "brian.mazza@gmail.com";
+      var lines = [
+        "Player name: " + v.player, "Age group: " + v.age, "Current club: " + v.club, "",
+        "Nominated by: " + v.you, "Contact email: " + v.email, "",
+        "Why this player:", v.why || "(not given)"
+      ];
       var url = "mailto:" + to
-        + "?subject=" + encodeURIComponent("WSC Select nomination" + (player ? " — " + player : ""))
+        + "?subject=" + encodeURIComponent("WSC Select nomination \u2014 " + v.player)
         + "&body=" + encodeURIComponent(lines.join("\n"));
-      /* recorded so the composed message can be inspected without a mail client */
       f.dataset.mailto = url;
       window.location.href = url;
+    }
+
+    f.addEventListener("submit", function (e) {
+      if (f.reportValidity && !f.reportValidity()) return;
+      e.preventDefault();
+      var v = values();
+      if (button) button.disabled = true;
+      say("Sending\u2026");
+
+      fetch("/api/nominate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(v)
+      }).then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+      }).then(function (res) {
+        if (!res.ok || !res.d.ok) throw new Error("failed");
+        f.reset();
+        say("Nomination received. We will be in touch.", "ok");
+      }).catch(function () {
+        say("Opening your email app\u2026");
+        mailtoFallback(v);
+      }).then(function () {
+        if (button) button.disabled = false;
+      });
     });
   }
 
