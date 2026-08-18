@@ -31,6 +31,21 @@ async function save(record) {
   return row;
 }
 
+/* get() resolves to { statusCode, stream, headers, blob }, not text. The stream
+   is the reliable path across SDK versions; the others are cheap fallbacks. */
+async function readBody(r) {
+  if (!r) return null;
+  if (typeof r === "string") return r;
+  if (r.blob && typeof r.blob.text === "function") return await r.blob.text();
+  if (typeof r.text === "function") return await r.text();
+  if (r.stream) {
+    const chunks = [];
+    for await (const c of r.stream) chunks.push(c);
+    return Buffer.concat(chunks).toString("utf8");
+  }
+  return null;
+}
+
 async function all() {
   const { list, get } = await blob();
   const { blobs } = await list({ prefix: PREFIX, limit: 1000 });
@@ -38,10 +53,10 @@ async function all() {
     blobs.map(async (b) => {
       try {
         const r = await get(b.pathname, { access: "private", useCache: false });
-        const text = typeof r === "string" ? r : await (r.text ? r.text() : r.blob().then((x) => x.text()));
-        return JSON.parse(text);
+        const text = await readBody(r);
+        return text ? JSON.parse(text) : null;
       } catch (err) {
-        console.error("unreadable blob", b.pathname, err);
+        console.error("unreadable blob", b.pathname, err && err.message);
         return null;
       }
     })
