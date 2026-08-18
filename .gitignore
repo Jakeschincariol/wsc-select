@@ -1,6 +1,8 @@
 .DS_Store
 .admin-password.txt
+.data
 .env
+.env*
 .env.local
 .vercel
 _*.html

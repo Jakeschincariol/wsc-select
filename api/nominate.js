@@ -14,6 +14,8 @@
  *   MAIL_TO                          defaults to brian.mazza@gmail.com
  */
 
+const store = require("./_store");
+
 const FIELDS = ["player", "age", "club", "you", "email", "why"];
 const LIMITS = { player: 120, age: 40, club: 120, you: 120, email: 200, why: 2000 };
 const REQUIRED = ["player", "age", "club", "you", "email"];
@@ -50,42 +52,29 @@ module.exports = async (req, res) => {
   const bad = invalid(d);
   if (bad) return res.status(400).json({ ok: false, error: bad });
 
-  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, MAIL_FROM } = process.env;
+  const { RESEND_API_KEY, MAIL_FROM } = process.env;
   const MAIL_TO = process.env.MAIL_TO || "brian.mazza@gmail.com";
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return res.status(503).json({ ok: false, error: "Nominations are not configured yet." });
   }
 
-  const row = {
-    player_name: d.player,
-    age_group: d.age,
-    current_club: d.club,
-    nominated_by: d.you,
-    contact_email: d.email,
-    notes: d.why || null,
-    user_agent: (req.headers["user-agent"] || "").slice(0, 300),
-  };
-
-  /* 1. record it */
+  /* 1. record it. This happens FIRST: if the mail provider is down the
+     nomination is still captured, whereas the reverse would lose it. */
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/nominations`, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify(row),
+    await store.save({
+      created_at: new Date().toISOString(),
+      player_name: d.player,
+      age_group: d.age,
+      current_club: d.club,
+      nominated_by: d.you,
+      contact_email: d.email,
+      notes: d.why || null,
+      user_agent: (req.headers["user-agent"] || "").slice(0, 300),
+      status: "new",
     });
-    if (!r.ok) {
-      const detail = await r.text();
-      console.error("supabase insert failed", r.status, detail);
-      return res.status(502).json({ ok: false, error: "Could not save the nomination." });
-    }
   } catch (err) {
-    console.error("supabase insert threw", err);
+    console.error("blob save failed", err);
     return res.status(502).json({ ok: false, error: "Could not save the nomination." });
   }
 

@@ -120,7 +120,7 @@
         fetch("/api/nominations", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: Number(sel.dataset.id), status: sel.value })
+          body: JSON.stringify({ id: sel.dataset.id, status: sel.value })
         });
       });
     });

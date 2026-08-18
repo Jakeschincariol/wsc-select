@@ -1,0 +1,9 @@
+{
+  "name": "wsc-select",
+  "private": true,
+  "version": "1.0.0",
+  "description": "WSC Select — a no-pay-to-play youth football programme from Westchester Sporting Club",
+  "dependencies": {
+    "@vercel/blob": "^2.7.0"
+  }
+}
