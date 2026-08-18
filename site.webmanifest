@@ -1,0 +1,11 @@
+{
+  "name": "WSC Select — Westchester Sporting Club",
+  "short_name": "WSC Select",
+  "icons": [
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "theme_color": "#16241D",
+  "background_color": "#16241D",
+  "display": "standalone"
+}
