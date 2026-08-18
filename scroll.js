@@ -150,9 +150,12 @@
         "Sent from the WSC Select nomination form."
       ];
       var to = (f.getAttribute("action") || "").replace(/^mailto:/, "") || "brian.mazza@gmail.com";
-      window.location.href = "mailto:" + to
+      var url = "mailto:" + to
         + "?subject=" + encodeURIComponent("WSC Select nomination" + (player ? " — " + player : ""))
         + "&body=" + encodeURIComponent(lines.join("\n"));
+      /* recorded so the composed message can be inspected without a mail client */
+      f.dataset.mailto = url;
+      window.location.href = url;
     });
   }
 
