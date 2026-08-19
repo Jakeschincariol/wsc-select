@@ -75,7 +75,8 @@ paragraph. A repeated icon beside text that already says the thing is filler.
 list item, no trailing rule on a link. These read as vibe-coded scatter.
 
 ## Contact
-`team@WSC.com`. A phone number is wanted but has not been supplied; do not invent one.
+`brian.mazza@gmail.com` receives every nomination. Mail sends from a Resend-verified
+address. A phone number is wanted but has not been supplied; do not invent one.
 
 ## Hard rules
 - The sport is **football (soccer)**. Never American football imagery.

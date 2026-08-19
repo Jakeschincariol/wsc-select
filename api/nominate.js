@@ -1,7 +1,7 @@
 /* POST /api/nominate
  *
  * Two jobs, in this order:
- *   1. write the nomination to Supabase  (the record of truth)
+ *   1. write the nomination to a private Vercel Blob store (the record of truth)
  *   2. email Brian via Resend            (the notification)
  *
  * The order matters. If the email provider is down, the nomination is still
@@ -9,12 +9,24 @@
  * reported but does NOT fail the request, because the row already exists.
  *
  * Required env vars (set in Vercel, never in the client):
- *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  *   RESEND_API_KEY, MAIL_FROM        e.g. "WSC Select <nominations@yourdomain.com>"
  *   MAIL_TO                          defaults to brian.mazza@gmail.com
  */
 
+const crypto = require("crypto");
 const store = require("./_store");
+
+/* A public endpoint that both writes storage and sends mail is worth throttling:
+   without it one script can flood the store and Brian's inbox. The caller's IP is
+   hashed, never stored raw, and the window is short enough that a coach filing
+   three nominations in a sitting is unaffected. */
+const WINDOW_MS = 15 * 60 * 1000;
+const MAX_PER_WINDOW = 4;
+
+function callerHash(req) {
+  const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || "unknown";
+  return crypto.createHash("sha256").update(ip).digest("hex").slice(0, 16);
+}
 
 const FIELDS = ["player", "age", "club", "you", "email", "why"];
 const LIMITS = { player: 120, age: 40, club: 120, you: 120, email: 200, why: 2000 };
@@ -59,6 +71,20 @@ module.exports = async (req, res) => {
     return res.status(503).json({ ok: false, error: "Nominations are not configured yet." });
   }
 
+  const who = callerHash(req);
+  try {
+    const recent = await store.all();
+    const since = Date.now() - WINDOW_MS;
+    const mine = recent.filter(
+      (r) => r.caller === who && new Date(r.created_at).getTime() > since
+    );
+    if (mine.length >= MAX_PER_WINDOW) {
+      return res.status(429).json({ ok: false, error: "Too many nominations just now. Try again shortly." });
+    }
+  } catch (err) {
+    console.error("throttle check failed, allowing", err && err.message);
+  }
+
   /* 1. record it. This happens FIRST: if the mail provider is down the
      nomination is still captured, whereas the reverse would lose it. */
   try {
@@ -71,6 +97,7 @@ module.exports = async (req, res) => {
       contact_email: d.email,
       notes: d.why || null,
       user_agent: (req.headers["user-agent"] || "").slice(0, 300),
+      caller: who,
       status: "new",
     });
   } catch (err) {
