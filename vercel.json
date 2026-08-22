@@ -50,6 +50,17 @@
   ],
   "redirects": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "wsc-select.vercel.app"
+        }
+      ],
+      "destination": "https://select.westchestersportingclub.com/",
+      "permanent": false
+    },
+    {
       "source": "/:path*",
       "has": [
         {
