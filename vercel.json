@@ -47,5 +47,18 @@
         }
       ]
     }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "wsc-select.vercel.app"
+        }
+      ],
+      "destination": "https://select.westchestersportingclub.com/:path*",
+      "permanent": false
+    }
   ]
 }
