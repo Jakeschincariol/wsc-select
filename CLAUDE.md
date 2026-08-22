@@ -27,6 +27,12 @@ Banned: pill and chip labels, uppercase display walls, outlined secondary button
 icons inside circles, decorative gradients, stock photography.
 
 ## Gotchas
+- **NEVER bulk-delete from the nominations store by prefix.** A "clean up my test
+  rows" wipe of `nominations/` deleted 19 real submissions (recovered only because
+  every row also emails Brian and Resend retains full bodies). Delete by exact id
+  or exact player_name, list what will be deleted first, and treat the store as
+  production data at all times. Test rows must use unmistakable names and be
+  deleted individually.
 - **`.field` is the form-field class.** Never reuse it for a layout container. The
   background film is `.filmbed`. A collision once gave six form `<p class="field">`
   elements `position:fixed; inset:0` and they covered the entire page.
